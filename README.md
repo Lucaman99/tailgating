@@ -4,7 +4,7 @@ Numerical demonstration of the tailgating procedure
 
 ## Overview
 
-A basic example implemented in PennyLane highlighting the tailgating procedure.
+A basic example implemented in PennyLane highlighting the tailgating procedure. I also make use the `autohf` library: the prototype version to the `pennylane.hf` module.
 
 **Important:** The examples highlighted in this repository make use of the PennyLane library, with the following method added to the `GradientDescentOptimizer` class:
 
