@@ -4,7 +4,7 @@ Numerical demonstration of the tailgating procedure
 
 ## Overview
 
-A basic example implemented in PennyLane highlighting the tailgating procedure. I also make use the `autohf` library ([Github repo](https://github.com/Lucaman99/autohf)): the prototype version of the `pennylane.hf` module.
+A basic example implemented in PennyLane highlighting the tailgating procedure. I also make use the `autohf` library ([Github repo](https://github.com/Lucaman99/autohf)): the prototype version of the `pennylane.hf` module, as well as the `bigvqe` library ([Github repo](https://github.com/Lucaman99/bigvqe)): a package for faster computation of sparse fermionic Hamiltonians.
 
 **Important:** The examples highlighted in this repository make use of the PennyLane library, with the following method added to the `GradientDescentOptimizer` class:
 
