@@ -6,6 +6,7 @@ import autograd.numpy as anp
 import autograd
 from autograd.differential_operators import make_jvp
 from tqdm.notebook import tqdm
+import bigvqe as bv
 
 
 angs_bohr = 1.8897259885789
@@ -167,19 +168,12 @@ def dd_hamiltonian(molecule, wires, core, active):
     return ddH
 
 
-def generate_d_hamiltonian(molecule, wires, bar=True):
+def generate_dd_hamiltonian(molecule, wires, core, active, bar=True):
     """
-    Generates first and second Hamiltonian derivatives
+    Generates first Hamiltonian derivatives
     """
     def H(R):
-        dh = d_hamiltonian(molecule, wires)
-        ddh = dd_hamiltonian(molecule, wires)
-
-        H1 = []
-        bar_range = tqdm(range(len(R))) if bar else range(len(R))
-        for j in bar_range:
-            vec = np.array([1.0 if j == k else 0.0 for k in range(len(R))])
-            H1.append(dh(R, vec))
+        ddh = dd_hamiltonian(molecule, wires, core, active)
 
         H2 = [[0 for l in range(len(R))] for k in range(len(R))]
         for j in range(len(R)):
@@ -190,5 +184,53 @@ def generate_d_hamiltonian(molecule, wires, bar=True):
                     vec2 = np.array([1.0 if k == l else 0.0 for l in range(len(R))])
                     val = ddh(R, vec1, vec2)
                     H2[j][k], H2[k][j] = val, val
-        return H1, H2
+        return H2
+    return H
+
+
+def generate_d_hamiltonian(molecule, wires, core, active, bar=True):
+    """
+    Generates second Hamiltonian derivatives
+    """
+    def H(R):
+        dh = d_hamiltonian(molecule, wires, core, active)
+
+        H1 = []
+        bar_range = tqdm(range(len(R))) if bar else range(len(R))
+        for j in bar_range:
+            vec = np.array([1.0 if j == k else 0.0 for k in range(len(R))])
+            H1.append(dh(R, vec))
+        return H1
+    return H 
+
+
+def hamiltonian_sparse(molecule, wires, core, active):
+    """Generates a sparse Hamiltonian"""
+    structure = molecule.symbols
+    num_elecs, charges = charge_structure(molecule)
+    basis = molecule.basis_name
+    hf_b = generate_basis_set(molecule)  
+
+    def H(R):
+        re_fn = lambda r: r.reshape((len(charges), 3))
+
+        def transform(r):
+            re = re_fn(r)
+            arguments = []
+            for i, b in enumerate(hf_b):
+                arguments.extend([[re[i]]] * len(b))
+            return re, *arguments
+
+        new_b_set = sum(hf_b, [])
+        integrals = hf.electron_integrals_flat(num_elecs, charges, new_b_set, occupied=core, active=active, cracked=False)(
+            *transform(R))
+
+        n = len(active)
+        num = (n ** 2) + 1
+        core_ad, one_elec, two_elec = integrals[0], integrals[1:num].reshape((n, n)), integrals[num:].reshape(
+            (n, n, n, n))
+
+        nuc_fn = hf.nuclear_energy(charges)(re_fn(R))
+        nuc_energy = core_ad + nuc_fn
+        return qml.SparseHamiltonian(bv.sparse_H(one_elec, two_elec, const=nuc_energy), wires=wires)
     return H

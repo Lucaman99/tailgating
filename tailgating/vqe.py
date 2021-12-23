@@ -66,7 +66,7 @@ def adapt_vqe(H, dev, operator_pool, hf_state, optimizer, max_steps, vqe_steps, 
     termination = False
     counter = 0
 
-    while not termination or counter < max_steps:
+    while not termination and counter < max_steps:
         grads = []
         for op in operator_pool:
 
@@ -113,3 +113,22 @@ def gate_pool(active_electrons, active_orbitals):
     for d in doubles:
         pool.append(lambda p, w=d: qml.DoubleExcitation(p, wires=w))
     return pool
+
+
+def compute_state(circuit, dev, optimal_params):
+    """Returns the statevector yielded from a parametrized circuit
+
+    Args
+        circuit (func): A quantum function representing a circuit
+        dev (qml.device): The device on which to execute the circuit
+        optimal_params (Iterable): The parameters to be fed into the circuit
+    Returns
+        numpy.array
+    """
+
+    @qml.qnode(dev)
+    def ansatz(params):
+        circuit(params)
+        return qml.state()
+
+    return ansatz(optimal_params)
