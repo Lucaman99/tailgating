@@ -1,10 +1,12 @@
 # tailgating
 
-Numerical demonstration of the tailgating procedure
+<p align="center">
+<img src="./tailgate.png">
+</p>
 
 ## Overview
 
-A basic example implemented in PennyLane highlighting the tailgating procedure. I also make use the `autohf` library ([Github repo](https://github.com/Lucaman99/autohf)): the prototype version of the `pennylane.hf` module, as well as the `bigvqe` library ([Github repo](https://github.com/Lucaman99/bigvqe)): a package for faster computation of sparse fermionic Hamiltonians.
+This repo includes a basic example implemented in PennyLane highlighting the tailgating procedure. I also make use the `autohf` library ([Github repo](https://github.com/Lucaman99/autohf)): the prototype version of the `pennylane.hf` module, as well as the `bigvqe` library ([Github repo](https://github.com/Lucaman99/bigvqe)): a package for faster computation of sparse fermionic Hamiltonians.
 
 **Important:** The examples highlighted in this repository make use of the PennyLane library, with the following method added to the `GradientDescentOptimizer` class:
 
