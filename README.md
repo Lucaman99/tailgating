@@ -1,7 +1,7 @@
 # tailgating
 
 <p align="center">
-<img src="./tailgate.png">
+<img src="./tailgate.png" style="width:600px;">
 </p>
 
 ## Overview
