@@ -1,5 +1,5 @@
 """Basic functionality"""
-import numpy as np
+import pennylane.numpy as np
 import pennylane as qml
 from tqdm.notebook import tqdm
 
@@ -33,8 +33,13 @@ def vqe(circuit, H, dev, optimizer, steps, params, sparse=False, bar=True, diff_
     nums = tqdm(range(steps)) if bar else range(steps)
 
     for s in nums:
-        params, energy, grad = optimizer.step_and_cost_and_grad(cost_fn, params)
-        if np.allclose(grad, 0.0):
+        #params, energy, grad = optimizer.step_and_cost_and_grad(cost_fn, params)
+        p = optimizer.compute_grad(cost_fn, (params,), {})
+        grad, energy = p
+        grad = grad[0]
+        params = params - (optimizer.stepsize) * grad
+        
+        if np.allclose(grad, 0.0, atol=1e-5):
             break
         if bar:
             nums.set_description("Energy = {}".format(energy))
@@ -95,9 +100,50 @@ def adapt_vqe(H, dev, operator_pool, hf_state, optimizer, max_steps, vqe_steps, 
                 operation(p)
             chosen_op(params[len(params) - 1])
 
-        energy, optimal_params = vqe(vqe_circuit, H, dev, optimizer, vqe_steps, optimal_params + [0.0], sparse=True, bar=bar)
+        energy, optimal_params = vqe(vqe_circuit, H, dev, optimizer, vqe_steps, np.array(list(optimal_params) + [0.0]), sparse=True, bar=bar)
         seq.append(chosen_op)
         counter += 1
+    return seq, optimal_params
+
+
+def batch_adapt_vqe(H, dev, batch_pool, init_state, optimizer, vqe_steps, bar=False, tol=1e-4, sparse=False, diff_method="best"):
+    """
+    ADAPT-VQE, but computing derivatives of collections of gates instead of single gates
+    """
+    diff_method = "parameter-shift" if sparse else diff_method
+    optimal_params = []
+    seq = []
+    for c, batch in enumerate(batch_pool):
+
+        #Constructs the circuit
+        @qml.qnode(dev, diff_method=diff_method)
+        def cost_fn(param):
+            qml.BasisState(init_state, wires=dev.wires)
+            for operation, p in zip(seq, optimal_params):
+                operation(p)
+            for p, op in zip(param, batch):
+                op(p)
+            return qml.expval(H) 
+        
+        # Computes the gradient of the circuit
+        grad_fn = qml.grad(cost_fn)(np.array([0.0 for _ in range(len(batch))]))
+
+        counter = 0
+        for b in range(len(batch)):
+            if abs(grad_fn[b]) >= tol:
+                seq.append(batch[b])
+                counter += 1
+
+        # Performs VQE
+        if c < len(batch_pool) - 1:
+            def vqe_circuit(params):
+                qml.BasisState(init_state, wires=dev.wires)
+                for operation, p in zip(seq, params):
+                    operation(p)
+
+            energy, optimal_params = vqe(vqe_circuit, H, dev, optimizer, vqe_steps, np.array(list(optimal_params) + [0.0 for _ in range(counter)]), sparse=True, bar=bar, diff_method=diff_method)
+        else:
+            optimal_params = np.array(list(optimal_params) + [0.0 for _ in range(counter)])
     return seq, optimal_params
 
 
@@ -113,6 +159,18 @@ def gate_pool(active_electrons, active_orbitals):
     for d in doubles:
         pool.append(lambda p, w=d: qml.DoubleExcitation(p, wires=w))
     return pool
+
+
+def batch_gate_pool(mol):
+    """Generates a gate pool and single and double excitations"""
+    singles, doubles = qml.qchem.excitations(electrons=mol.active_electrons, orbitals=2 * mol.active_orbitals)
+    pool1, pool2 = [], []
+
+    for s in singles:
+        pool1.append(lambda p, w=s: qml.SingleExcitation(p, wires=w))
+    for d in doubles:
+        pool2.append(lambda p, w=d: qml.DoubleExcitation(p, wires=w))
+    return pool2, pool1
 
 
 def compute_state(circuit, dev, optimal_params):
